@@ -42,6 +42,13 @@ type VaulteraConfig struct {
 	BaseURL string `envconfig:"BASE_URL" default:"https://pci.vaultera.co/api/v1"`
 }
 
+// AuthConfig holds the server-to-server shared secret auth settings.
+type AuthConfig struct {
+	SharedSecret string `envconfig:"SHARED_SECRET"`
+	HeaderName   string `envconfig:"HEADER_NAME" default:"X-Payment-Service-Auth"`
+	Require      bool   `envconfig:"REQUIRE" default:"true"`
+}
+
 // Config aggregates all service configuration.
 type Config struct {
 	App      AppConfig
@@ -49,6 +56,7 @@ type Config struct {
 	ARIDB    ARIDBConfig
 	Redis    RedisConfig
 	Vaultera VaulteraConfig
+	Auth     AuthConfig
 }
 
 // Load reads configuration from environment variables.
@@ -68,6 +76,9 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	if err := envconfig.Process("VAULTERA", &cfg.Vaultera); err != nil {
+		return nil, err
+	}
+	if err := envconfig.Process("AUTH", &cfg.Auth); err != nil {
 		return nil, err
 	}
 
