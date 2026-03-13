@@ -8,6 +8,7 @@ import (
 	"github.com/CentraGlobal/backend-payment-go/internal/db"
 	"github.com/CentraGlobal/backend-payment-go/internal/handlers"
 	"github.com/CentraGlobal/backend-payment-go/internal/infisical"
+	"github.com/CentraGlobal/backend-payment-go/internal/middleware"
 	redisclient "github.com/CentraGlobal/backend-payment-go/internal/redis"
 	"github.com/CentraGlobal/backend-payment-go/internal/vaultera"
 	"github.com/gofiber/fiber/v2"
@@ -26,6 +27,14 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
+	}
+
+	// Validate auth configuration.
+	if cfg.Auth.Require && cfg.Auth.SharedSecret == "" {
+		log.Fatalf("AUTH_SHARED_SECRET is required when AUTH_REQUIRE=true")
+	}
+	if cfg.App.Env != "development" && !cfg.Auth.Require {
+		log.Printf("warning: AUTH_REQUIRE=false in non-development environment")
 	}
 
 	// Database pools (best-effort; service starts without them if unavailable)
@@ -61,8 +70,8 @@ func main() {
 	// Health
 	app.Get("/health", handlers.HealthHandler(dbPool, ariPool, rdb))
 
-	// Vaultera session (for iframe usage)
-	v1 := app.Group("/v1")
+	// All /v1 routes require shared secret auth
+	v1 := app.Group("/v1", middleware.RequireSharedSecret(cfg.Auth))
 	v1.Get("/session", paymentHandler.GetSession)
 
 	// Payment routes
